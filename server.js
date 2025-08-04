@@ -49,7 +49,10 @@ app.use(fileUpload({
 })); // Handle file uploads
 
 // --- Connect to MongoDB ---
-mongoose.connect(process.env.MONGO_URI) // Removed deprecated options
+mongoose.connect(process.env.MONGO_URI, {
+  bufferCommands: false,
+  maxPoolSize: 1,
+}) // Optimized for serverless
 .then(() => console.log('✅ MongoDB connected successfully'))
 .catch(err => {
   console.error('❌ MongoDB connection error:', err);
@@ -86,6 +89,11 @@ app.get('/api/test-server', (req, res) => {
 });
 
 // --- Start the Server ---
-app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Backend server running on port ${PORT}`);
+  });
+}
+
+// Export the app for Vercel
+module.exports = app;
