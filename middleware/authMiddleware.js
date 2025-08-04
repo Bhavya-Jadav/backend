@@ -77,14 +77,18 @@ const company = (req, res, next) => {
 
 // Middleware to check for admin or company role
 const adminOrCompany = (req, res, next) => {
+  console.log('🔐 adminOrCompany middleware - Starting check');
+  console.log('🔐 adminOrCompany middleware - User exists:', !!req.user);
   console.log('🔐 adminOrCompany middleware - User role:', req.user?.role);
   console.log('🔐 adminOrCompany middleware - User ID:', req.user?._id);
+  console.log('🔐 adminOrCompany middleware - Full user:', req.user);
   
   if (req.user && (req.user.role === 'admin' || req.user.role === 'company')) {
     console.log('✅ Access granted - User has admin or company role');
     next(); // User is an admin or company, proceed
   } else {
     console.log('❌ Access denied - User role:', req.user?.role);
+    console.log('❌ Access denied - Role check failed, user:', req.user);
     res.status(403).json({ message: 'Access denied. Not authorized as admin or company.' }); // Forbidden
   }
 };

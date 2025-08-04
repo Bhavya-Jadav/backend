@@ -6,6 +6,29 @@ const Problem = require('../models/Problem');
 const User = require('../models/User');
 const { protect, admin, student, adminOrCompany } = require('../middleware/authMiddleware'); // Import auth middleware
 
+// @desc    Get all ideas (for admin dashboard)
+// @route   GET /api/ideas
+// @access  Private/Admin
+router.get('/', protect, admin, async (req, res) => {
+  try {
+    console.log('🚀 ADMIN IDEAS ROUTE - Getting all ideas');
+    
+    // Get all ideas with populated data
+    const ideas = await Idea.find({})
+                           .populate('student', 'username name email university course year skills profilePicture')
+                           .populate('problem', 'title company branch')
+                           .sort({ createdAt: -1 })
+                           .lean();
+
+    console.log(`📊 Found ${ideas.length} total ideas`);
+    
+    res.json(ideas);
+  } catch (error) {
+    console.error("Fetch all ideas error:", error);
+    res.status(500).json({ message: 'Server Error fetching all ideas' });
+  }
+});
+
 // @desc    Submit a new idea for a problem
 // @route   POST /api/ideas
 // @access  Private/Student
@@ -61,7 +84,7 @@ router.post('/', protect, student, async (req, res) => {
 // @desc    Get all ideas for a specific problem (for admins and companies to view)
 // @route   GET /api/ideas/problem/:problemId
 // @access  Private/Admin or Company
-router.get('/problem/:problemId', protect, async (req, res) => {
+router.get('/problem/:problemId', protect, adminOrCompany, async (req, res) => {
   try {
     console.log('🚀 IDEAS ROUTE DEBUG - Starting request');
     console.log('👤 User accessing ideas:', {
@@ -69,14 +92,6 @@ router.get('/problem/:problemId', protect, async (req, res) => {
       username: req.user.username,
       role: req.user.role
     });
-
-    // Check if user role is admin or company
-    if (req.user.role !== 'admin' && req.user.role !== 'company') {
-      console.log('❌ ROLE CHECK FAILED - User role is:', req.user.role);
-      return res.status(403).json({ message: 'Access denied. Not authorized as admin or company' });
-    }
-
-    console.log('✅ ROLE CHECK PASSED - User role is:', req.user.role);
 
     // If user is a company, check if they own this problem
     if (req.user.role === 'company') {

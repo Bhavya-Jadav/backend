@@ -3,7 +3,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const fileUpload = require('express-fileupload');
-require('dotenv').config(); // Load environment variables
+
+// Load environment variables only in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 // Import Route Files
 const userRoutes = require('./routes/userRoutes');
@@ -16,19 +20,27 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Middleware ---
-// CORS Configuration for Vercel Production
-app.use(cors({
-  origin: [
-    'http://localhost:3000', // Local development
-    'https://engineer-connect.vercel.app', // Your actual frontend URL
-    /\.vercel\.app$/ // Allow any Vercel subdomain
-  ],
-  credentials: true, // Allow cookies
+// CORS configuration for production
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Allow any vercel.app domain or your specific domain
+        if (origin.includes('vercel.app')) {
+          return callback(null, true);
+        }
+        
+        callback(new Error('Not allowed by CORS'));
+      }
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  optionsSuccessStatus: 200 // For legacy browser support
-}));
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
 
+app.use(cors(corsOptions)); // Enable CORS with options
 app.use(express.json()); // Parse JSON bodies
 app.use(fileUpload({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
@@ -66,6 +78,11 @@ app.use('/api/files', fileRoutes);
 app.get('/api/leaderboard', (req, res) => {
   // Redirect to the actual leaderboard endpoint
   res.redirect('/api/users/leaderboard');
+});
+
+// TEST ENDPOINT directly in server.js
+app.get('/api/test-server', (req, res) => {
+  res.json({ message: 'Server test endpoint works!', timestamp: new Date().toISOString() });
 });
 
 // --- Start the Server ---

@@ -290,14 +290,20 @@ router.put('/change-password', protect, async (req, res) => {
     const userId = req.user.id;
     const { currentPassword, newPassword } = req.body;
 
+    console.log('🔐 PASSWORD CHANGE DEBUG - Starting password change for user:', userId);
+
     // Find user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Check current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    console.log('🔐 PASSWORD CHANGE DEBUG - User found:', user.username);
+
+    // Check current password using the same method as login
+    const isCurrentPasswordValid = await user.matchPassword(currentPassword);
+    console.log('🔐 PASSWORD CHANGE DEBUG - Current password valid:', isCurrentPasswordValid);
+    
     if (!isCurrentPasswordValid) {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
@@ -307,17 +313,44 @@ router.put('/change-password', protect, async (req, res) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters long' });
     }
 
-    // Hash new password
+    console.log('🔐 PASSWORD CHANGE DEBUG - Hashing new password with bcrypt');
+    
+    // Hash the new password manually (same method as User model)
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+    
+    console.log('🔐 PASSWORD CHANGE DEBUG - Updating password directly in database');
+    
+    // Update password directly in database
+    const updateResult = await User.updateOne(
+      { _id: userId },
+      { $set: { password: hashedNewPassword } }
+    );
 
-    await user.save();
+    console.log('🔐 PASSWORD CHANGE DEBUG - Update result:', updateResult);
 
-    res.json({ message: 'Password changed successfully' });
+    // Verify the password was updated correctly
+    const updatedUser = await User.findById(userId);
+    const verifyNewPassword = await updatedUser.matchPassword(newPassword);
+    console.log('🔐 PASSWORD CHANGE DEBUG - New password verification:', verifyNewPassword);
+
+    if (verifyNewPassword) {
+      console.log('🔐 PASSWORD CHANGE DEBUG - Password change successful');
+      res.json({ message: 'Password changed successfully' });
+    } else {
+      console.log('🔐 PASSWORD CHANGE DEBUG - Password change failed verification');
+      res.status(500).json({ message: 'Password change failed - please try again' });
+    }
+    
   } catch (error) {
-    console.error('Password change error:', error);
+    console.error('🔐 PASSWORD CHANGE ERROR:', error);
     res.status(500).json({ message: 'Server error changing password' });
   }
+});
+
+// TEST ENDPOINT - to verify server is using updated code
+router.get('/test-update', (req, res) => {
+  res.json({ message: 'Server is using updated code!', timestamp: new Date().toISOString() });
 });
 
 // @desc    Upload profile picture
